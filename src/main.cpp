@@ -15,7 +15,7 @@ int max_speed = 24000;
 int stick_output_left[9] =  { 0, -max_speed,       -max_speed, -max_speed * 0.5,-max_speed, max_speed * 0.5,  max_speed, max_speed      , max_speed };
 int stick_output_right[9] = { 0, -max_speed * 0.5, -max_speed, -max_speed      , max_speed, max_speed      ,  max_speed, max_speed * 0.5, -max_speed };
 
-string readlines(BufferedSerial &serial)
+string readlines(BufferedSerial &serial, bool is_only_number = false)
 {
     int i = 0;        // 繰り返し変数
     char buff = '0';  // シリアル受信
@@ -28,6 +28,12 @@ string readlines(BufferedSerial &serial)
         data += buff; // 受信データ保存
         i++;
         printf("%c", buff);
+        if(is_only_number){
+            if( (buff < '0' || buff > '9') && buff != '\n'){
+                printf("error\n");
+                return "";
+            }
+        }
     }
     // printf("%s\n", data); //受信データ表示
     printf("end\n");
@@ -49,65 +55,37 @@ int main()
 
         if (esp.readable())
         {
-            // string data = readlines(esp);
-            int i = 0;          // 繰り返し変数
-            char buff = '0';    // シリアル受信
-            char data[10] = ""; // 受信データ保存
+            string data = readlines(esp);
+            // int i = 0;          // 繰り返し変数
+            // char buff = '0';    // シリアル受信
+            // char data[10] = ""; // 受信データ保存
 
-            while (buff != '\n' and i < 10)
-            {
-                esp.read(&buff, sizeof(buff)); // シリアル受信
-
-                data[i] = buff; // 受信データ保存
-                i++;
-                // printf("%c", buff);
-            }
-            // printf("%s", data);
-
-            // if (data == "up\n")
+            // while (buff != '\n' and i < 10)
             // {
-            //     output[0] = 12000;
-            //     // printf("up\n");
-            // }
-            // else if (data == "down\n")
-            // {
-            //     output[0] = -12000;
-            //     // printf("down!!\n");
-            // }
-            // else if (data == "stop\n")
-            // {
-            //     output[0] = 0;
-            //     output[1] = 0;
-            //     // printf("stop\n");
-            // }
-            // printf("%d\n", strcmp(data, "slider\n"));
+            //     esp.read(&buff, sizeof(buff)); // シリアル受信
 
-            if (strcmp(data, "stick\n") == 97)
+            //     data[i] = buff; // 受信データ保存
+            //     i++;
+            //     // printf("%c", buff);
+            // }
+
+            if (data == "stick\n")
             {
                 // printf("stick!!\n");
 
-                // string datas = readlines(esp);
-                int j = 0;          // 繰り返し変数
-                char buff = '0';    // シリアル受信
-                char datas[8] = ""; // 受信データ保存
-
-                while (buff != '\n' and j < 8)
-                {
-                    esp.read(&buff, sizeof(buff)); // シリアル受信
-
-                    datas[j] = buff; // 受信データ保存
-                    j++;
-                    // printf("%c", buff);
+                string datas = readlines(esp, true);
+                if(datas == ""){
+                    break;
                 }
                 // printf("%s\n", datas);
-                stickXY = atoi(datas);
+                stickXY = stoi(datas);
                 printf("%d\n", stickXY);
                 
                 output[0] = stick_output_left[stickXY] * -1;
                 output[1] = stick_output_right[stickXY];
                 
             }
-            if (strcmp(data, "slider\n") == 97)
+            if (data == "slider\n")
             {
                 printf("slider!!\n");
 
