@@ -12,8 +12,8 @@ int16_t output[4] = {0}; // 0: left, 1: right, 2: extract
 Pid pid({{150.0, 3.0, 0.01}, 20000, -20000});
 int max_speed = 24000;
 
-int stick_output_left[9] =  { 0, -max_speed,       -max_speed, -max_speed * 0.5,-max_speed, max_speed * 0.5,  max_speed, max_speed      , max_speed };
-int stick_output_right[9] = { 0, -max_speed * 0.5, -max_speed, -max_speed      , max_speed, max_speed      ,  max_speed, max_speed * 0.5, -max_speed };
+int stick_output_left[9] = {0, -max_speed, -max_speed, -max_speed * 0.5, -max_speed, max_speed * 0.5, max_speed, max_speed, max_speed};
+int stick_output_right[9] = {0, -max_speed * 0.5, -max_speed, -max_speed, max_speed, max_speed, max_speed, max_speed * 0.5, -max_speed};
 
 string readlines(BufferedSerial &serial, bool is_only_number = false)
 {
@@ -25,24 +25,29 @@ string readlines(BufferedSerial &serial, bool is_only_number = false)
     {
         serial.read(&buff, sizeof(buff)); // シリアル受信
 
-        data += buff; // 受信データ保存
-        i++;
-        printf("%c", buff);
-        if(is_only_number){
-            if( (buff < '0' || buff > '9') && buff != '\n'){
-                printf("error\n");
-                return "";
+        if (buff != '\n' && buff != '\r')
+        {
+            data += buff; // 受信データ保存
+
+            if (is_only_number)
+            {
+
+                if ((buff < '0' || buff > '9'))
+                {
+                    printf("error\n");
+                    return "";
+                }
             }
         }
+        i++;
+        // printf("%c", buff);
     }
     // printf("%s\n", data); //受信データ表示
-    printf("end\n");
     return data;
 }
 
 int main()
 {
-    int slider = 0;
     int stickXY = 0;
     int goal = 0;
     int deg = 0;
@@ -56,54 +61,21 @@ int main()
         if (esp.readable())
         {
             string data = readlines(esp);
-            // int i = 0;          // 繰り返し変数
-            // char buff = '0';    // シリアル受信
-            // char data[10] = ""; // 受信データ保存
 
-            // while (buff != '\n' and i < 10)
-            // {
-            //     esp.read(&buff, sizeof(buff)); // シリアル受信
-
-            //     data[i] = buff; // 受信データ保存
-            //     i++;
-            //     // printf("%c", buff);
-            // }
-
-            if (data == "stick\n")
+            if (data.compare("stick") == 0)
             {
                 // printf("stick!!\n");
 
                 string datas = readlines(esp, true);
-                if(datas == ""){
-                    break;
+                if (datas == "")
+                {
+                    continue;
                 }
                 // printf("%s\n", datas);
                 stickXY = stoi(datas);
-                printf("%d\n", stickXY);
-                
+
                 output[0] = stick_output_left[stickXY] * -1;
                 output[1] = stick_output_right[stickXY];
-                
-            }
-            if (data == "slider\n")
-            {
-                printf("slider!!\n");
-
-                // string datas = readlines(esp);
-                int j = 0;          // 繰り返し変数
-                char buff = '0';    // シリアル受信
-                char datas[8] = ""; // 受信データ保存
-
-                while (buff != '\n' and j < 8)
-                {
-                    esp.read(&buff, sizeof(buff)); // シリアル受信
-
-                    datas[j] = buff; // 受信データ保存
-                    j++;
-                    printf("%c", buff);
-                }
-                slider = atoi(datas);
-                goal = slider * 30;
             }
         }
         if (can.read(msg_read); msg_read.id == 10)
