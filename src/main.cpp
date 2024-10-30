@@ -12,6 +12,8 @@ int16_t output[4] = {0}; // 0: left, 1: right, 2: extract
 Pid pid({{150.0, 3.0, 0.01}, 20000, -20000});
 int max_speed = 24000;
 int extract_speed = 10000;
+int trash_speed = 18000;
+int arm_height[4] = {1500, 1000, 500, 0};
 bool is_pid = false;
 
 int stick_output_left[9] = {0, -max_speed, -max_speed, -max_speed * 0.5, -max_speed, max_speed * 0.5, max_speed, max_speed, max_speed};
@@ -51,6 +53,7 @@ int main()
     int stickXY = 0;
     int goal = 0;
     int deg = 0;
+    bool is_limit_push = 0;
 
     printf("main\n");
     while (1)
@@ -78,6 +81,7 @@ int main()
             else if (data.compare("armmove") == 0)
             {
                 is_pid = false;
+                pid.reset();
 
                 string datas = readlines(esp, true);
                 if (datas == "")
@@ -97,20 +101,68 @@ int main()
                     break;
                 }
             }
+            else if (data.compare("trash") == 0)
+            {
+                is_pid = false;
+                pid.reset();
+
+                string datas = readlines(esp, true);
+                if (datas == "")
+                {
+                    continue;
+                }
+                switch (stoi(datas))
+                {
+                case 0:
+                    output[3] = 0;
+                    break;
+                case 1:
+                    output[3] = extract_speed;
+                    break;
+                case 2:
+                    output[3] = -extract_speed;
+                    break;
+                }
+            }
+            else if (data.compare("arm") == 0)
+            {
+                pid.reset();
+                is_pid = true;
+
+                string datas = readlines(esp, true);
+                if (datas == "")
+                {
+                    continue;
+                }
+                goal = arm_height[stoi(datas)];
+            }
         }
-        if (can.read(msg_read); msg_read.id == 10)
+
+        can.read(msg_read);
+
+        if (msg_read.id == 10)
         {
             int16_t enc = (msg_read.data[7] << 8 | msg_read.data[6]);
             const float k = 360.0 / (250.0 * 2.0);
             deg = enc * k;
+        }
+        if (msg_read.id == 9)
+        {
+            uint8_t sw = msg_read.data[5];
+            is_limit_push = sw;
         }
         // printf("stick: %d, %d slider: %d\n", output[0], output[1], slider);
 
         if (now - pre >= 10ms)
         {
             pre = now;
-            if (is_pid) output[2] = pid.calc(goal, deg, 0.01);
-            // printf("goal: %d, deg: %d, output: %d\n", goal, deg, output[2]);
+            if (is_pid) output[2] = pid.calc(goal, deg, 0.01) * -1;
+            if (is_limit_push && output[2] > 0)
+            {
+                output[2] = 0;
+            }
+            
+            printf("goal: %d, deg: %d, output: %d\n", goal, deg, output[2]);
             CANMessage msg(3, (const uint8_t *)output, 8);
             can.write(msg);
         }
