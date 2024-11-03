@@ -6,15 +6,25 @@
 CAN can(PA_11, PA_12, 1e6);
 CANMessage msg;
 CANMessage msg_read;
+CANMessage msg_noid;
 BufferedSerial pc(USBTX, USBRX, 115200);
 BufferedSerial esp(PA_9, PA_10, 115200);
 int16_t output[4] = {0}; // 0: left, 1: right, 2: extract
+uint8_t noid[8] = {0};
 Pid pid({{150.0, 3.0, 0.01}, 20000, -20000});
+
+DigitalOut led_eb(PC_3);
+DigitalOut led_conn(PC_2);
+DigitalOut eb_vcc(PC_1);
+DigitalIn eb_gnd(PC_0);
+
 int max_speed = 24000;
 int extract_speed = 10000;
 int trash_speed = 18000;
 int arm_height[4] = {1500, 1000, 500, 0};
 bool is_pid = false;
+bool is_eb_push = true;
+bool is_conn = false;
 
 int stick_output_left[9] = {0, -max_speed, -max_speed, -max_speed * 0.5, -max_speed, max_speed * 0.5, max_speed, max_speed, max_speed};
 int stick_output_right[9] = {0, -max_speed * 0.5, -max_speed, -max_speed, max_speed, max_speed, max_speed, max_speed * 0.5, -max_speed};
@@ -54,6 +64,9 @@ int main()
     int goal = 0;
     int deg = 0;
     bool is_limit_push = 0;
+    led_conn = 0;
+    led_eb = 0;
+    eb_vcc = 1;
 
     printf("main\n");
     while (1)
@@ -94,10 +107,10 @@ int main()
                     output[2] = 0;
                     break;
                 case 1:
-                    output[2] = extract_speed;
+                    output[2] = -extract_speed;
                     break;
                 case 2:
-                    output[2] = -extract_speed;
+                    output[2] = extract_speed;
                     break;
                 }
             }
@@ -136,6 +149,28 @@ int main()
                 }
                 goal = arm_height[stoi(datas)];
             }
+            else if (data.compare("conn") == 0)
+            {
+                led_conn = 1;
+            }
+            else if (data.compare("disconn") == 0)
+            {
+                led_conn = 0;
+            }
+            else if (data.compare("new") == 0)
+            {
+                string datas = readlines(esp, true);
+                if (datas == "")
+                {
+                    continue;
+                }
+                if (stoi(datas) == 1)
+                {
+                    noid[0] = 1;
+                } else {
+                    noid[0] = 0;
+                }
+            }
         }
 
         can.read(msg_read);
@@ -153,6 +188,15 @@ int main()
         }
         // printf("stick: %d, %d slider: %d\n", output[0], output[1], slider);
 
+        if (eb_gnd)
+        {
+            led_eb = 1;
+        }
+        else
+        {
+            led_eb = 0;
+        }
+
         if (now - pre >= 10ms)
         {
             pre = now;
@@ -162,9 +206,11 @@ int main()
                 output[2] = 0;
             }
             
-            printf("goal: %d, deg: %d, output: %d\n", goal, deg, output[2]);
+            // printf("goal: %d, deg: %d, output: %d\n", goal, deg, output[2]);
             CANMessage msg(3, (const uint8_t *)output, 8);
+            CANMessage msg_noid(29, noid, 8);
             can.write(msg);
+            can.write(msg_noid);
         }
     }
 }
